@@ -1,15 +1,16 @@
 from getpass import getpass
+from time import sleep
 import sys
 
-from splunklib.results import results
-from splunklib.client import client
-
+import splunklib.results as results
+import splunklib.client as client
 
 """
 Typical splunk query - ref http://dev.splunk.com/view/python-sdk/SP-CAAAEE5
 """
 
 def return_stats(job):
+    """Collect various stats into a dictionary"""
     stats = {"isDone": job["isDone"],
              "doneProgress": float(job["doneProgress"])*100,
               "scanCount": int(job["scanCount"]),
@@ -17,7 +18,7 @@ def return_stats(job):
               "resultCount": int(job["resultCount"])}
     return stats
 
-passwd = getpass('enter mpenning Splunk password: ')
+passwd = getpass('enter Splunk password: ')
 
 # Connect to Splunk Enterprise, assume splunk server is at localhost:8089
 service = client.connect(username='mpenning', password=passwd,
@@ -26,19 +27,19 @@ service = client.connect(username='mpenning', password=passwd,
 # Get the collection of search jobs
 jobs = service.jobs
 
-# Create a search job
-job = jobs.create()
-
 # Run a blocking search--search everything
-query = "search index=* sourcetype=* foo bar me"
 print "Waiting for the search to finish..."
 
-# A blocking search returns the job's SID when the search is done
-job = jobs.create(searchquery_blocking, **{"exec_mode": "blocking"})
+###
+### Create a blocking search which returns the job's SID when the search is done
+###
+query = "search index=* sourcetype=* foo bar me earliest=-1d@d"
+job = jobs.create(query, **{"exec_mode": "blocking"})
 
-while True:
-    while not job.is_ready():
-        pass
+###
+### Wait for search results to come back... poll until done
+### 
+while not job.is_done():
 
     stats = return_stats(job)
     status = ("\r%(doneProgress)03.1f%%   %(scanCount)d scanned   "
@@ -47,16 +48,21 @@ while True:
     sys.stdout.write(status)
     sys.stdout.flush()
 
-    # Break out of the while loop, if done...
-    if stats["isDone"] == "1":
-        sys.stdout.write("\n\nDone!\n\n")
-        break
-
     sleep(0.25)
 
-# Get the results and display them
-for result in results.ResultsReader(job.results()):
-    print result
+###
+### Get the results and print each result dictionary
+### 
+offset = 0
+count = 500
+block_results = job.results({"count": count, "offset": offset})
+while offset < return_stats['resultCount']:
+
+    for result in results.ResultsReader(block_results)
+        print result
+
+    offset += count
+    block_offset = job.results({"count": count, "offset": offset})
 
 job.cancel()   
 sys.stdout.write('\n')
