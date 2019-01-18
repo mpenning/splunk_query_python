@@ -55,14 +55,14 @@ while not job.is_done():
 ### 
 offset = 0
 count = 500
-block_results = job.results({"count": count, "offset": offset})
-while offset < return_stats['resultCount']:
+block_results = job.results(**{"count": count, "offset": offset})
+while offset < return_stats(job)['resultCount']:
 
-    for result in results.ResultsReader(block_results)
+    for result in results.ResultsReader(block_results):
         print result
 
     offset += count
-    block_offset = job.results({"count": count, "offset": offset})
+    block_offset = job.results(**{"count": count, "offset": offset})
 
 job.cancel()   
 sys.stdout.write('\n')
